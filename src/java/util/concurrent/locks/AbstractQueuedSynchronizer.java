@@ -383,13 +383,21 @@ public abstract class AbstractQueuedSynchronizer
         /** Marker to indicate a node is waiting in exclusive mode */
         static final Node EXCLUSIVE = null;
 
-        /** waitStatus value to indicate thread has cancelled */
+        /**
+         * 节点从同步队列中取消
+         */
         static final int CANCELLED =  1;
-        /** waitStatus value to indicate successor's thread needs unparking */
+        /**
+         * 后继节点的线程处于等待状态，如果当前节点释放同步状态会通知后继节点，使得后继节点的线程继续运行
+         */
         static final int SIGNAL    = -1;
+        /**
+         * 当前节点进入等待队列中
+         */
         /** waitStatus value to indicate thread is waiting on condition */
         static final int CONDITION = -2;
         /**
+         * 表示下一次共享式同步状态获取将会无条件传播下去
          * waitStatus value to indicate the next acquireShared should
          * unconditionally propagate
          */
@@ -536,6 +544,7 @@ public abstract class AbstractQueuedSynchronizer
     private volatile int state;
 
     /**
+     * 获取同步状态值
      * Returns the current value of synchronization state.
      * This operation has memory semantics of a {@code volatile} read.
      * @return current state value
@@ -545,6 +554,7 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 设置同步状态值
      * Sets the value of synchronization state.
      * This operation has memory semantics of a {@code volatile} write.
      * @param newState the new state value
@@ -554,6 +564,7 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 使用CAS设置当前状态，保证状态设置的原子性；
      * Atomically sets synchronization state to the given updated
      * value if the current state value equals the expected value.
      * This operation has memory semantics of a {@code volatile} read
@@ -1186,6 +1197,7 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 独占式获取同步状态，如果过去失败，则放入同步队列等待
      * Acquires in exclusive mode, ignoring interrupts.  Implemented
      * by invoking at least once {@link #tryAcquire},
      * returning on success.  Otherwise the thread is queued, possibly
@@ -1204,6 +1216,7 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 与acquire方法相同，但在同步队列中进行等待的时候可以检测中断；
      * Acquires in exclusive mode, aborting if interrupted.
      * Implemented by first checking interrupt status, then invoking
      * at least once {@link #tryAcquire}, returning on
@@ -1226,6 +1239,8 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 在acquireInterruptibly基础上增加了超时等待功能，在超时时间内没有获得同步状态返回false;
+     *
      * Attempts to acquire in exclusive mode, aborting if interrupted,
      * and failing if the given timeout elapses.  Implemented by first
      * checking interrupt status, then invoking at least once {@link
@@ -1251,6 +1266,8 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 释放同步状态，该方法会唤醒在同步队列中的下一个节点
+     *
      * Releases in exclusive mode.  Implemented by unblocking one or
      * more threads if {@link #tryRelease} returns true.
      * This method can be used to implement method {@link Lock#unlock}.
@@ -1271,6 +1288,8 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 共享式获取同步状态，与独占式的区别在于同一时刻有多个线程可以获取同步状态
+     *
      * Acquires in shared mode, ignoring interrupts.  Implemented by
      * first invoking at least once {@link #tryAcquireShared},
      * returning on success.  Otherwise the thread is queued, possibly
@@ -1287,6 +1306,9 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     *
+     * 在acquireShared方法基础上增加了能响应中断的功能；
+     *
      * Acquires in shared mode, aborting if interrupted.  Implemented
      * by first checking interrupt status, then invoking at least once
      * {@link #tryAcquireShared}, returning on success.  Otherwise the
@@ -1308,6 +1330,8 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 在acquireSharedInterruptibly基础上增加了超时等待的功能；
+     *
      * Attempts to acquire in shared mode, aborting if interrupted, and
      * failing if the given timeout elapses.  Implemented by first
      * checking interrupt status, then invoking at least once {@link
@@ -1332,6 +1356,9 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     *
+     * 共享式释放同步状态
+     *
      * Releases in shared mode.  Implemented by unblocking one or more
      * threads if {@link #tryReleaseShared} returns true.
      *
