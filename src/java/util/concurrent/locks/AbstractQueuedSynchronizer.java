@@ -377,6 +377,16 @@ public abstract class AbstractQueuedSynchronizer
      * expert group, for helpful ideas, discussions, and critiques
      * on the design of this class.
      */
+
+
+    /**
+     * CANCELLED，值为1，表示当前的线程被取消；
+     * SIGNAL，值为-1，表示当前节点的后继节点包含的线程需要运行，也就是unpark；
+     * CONDITION，值为-2，表示当前节点在等待condition，也就是在condition队列中；
+     * PROPAGATE，值为-3，表示当前场景下后续的acquireShared能够得以执行；
+     * 值为0，表示当前节点在sync队列中，等待着获取锁。
+     */
+
     static final class Node {
         /** Marker to indicate a node is waiting in shared mode */
         static final Node SHARED = new Node();
@@ -440,6 +450,7 @@ public abstract class AbstractQueuedSynchronizer
         volatile int waitStatus;
 
         /**
+         * 上一个节点，
          * Link to predecessor node that current node/thread relies on
          * for checking waitStatus. Assigned during enqueuing, and nulled
          * out (for sake of GC) only upon dequeuing.  Also, upon
@@ -598,9 +609,11 @@ public abstract class AbstractQueuedSynchronizer
         for (;;) {
             Node t = tail;
             if (t == null) { // Must initialize
+                // 构造头节点
                 if (compareAndSetHead(new Node()))
                     tail = head;
             } else {
+                // 尾插入，cas操作失败自旋尝试
                 node.prev = t;
                 if (compareAndSetTail(t, node)) {
                     t.next = node;
@@ -617,16 +630,22 @@ public abstract class AbstractQueuedSynchronizer
      * @return the new node
      */
     private Node addWaiter(Node mode) {
+        /**
+         * 将当前线程封装成node节点，
+         */
         Node node = new Node(Thread.currentThread(), mode);
         // Try the fast path of enq; backup to full enq on failure
+        // 判断尾节点是否是null
         Node pred = tail;
         if (pred != null) {
+            //2.2将当前节点尾插入的方式插入同步队列中
             node.prev = pred;
             if (compareAndSetTail(pred, node)) {
                 pred.next = node;
                 return node;
             }
         }
+        // 2.1. 当前同步队列尾节点为null，说明当前线程是第一个加入同步队列进行等待的线程
         enq(node);
         return node;
     }
@@ -873,13 +892,18 @@ public abstract class AbstractQueuedSynchronizer
         try {
             boolean interrupted = false;
             for (;;) {
+                //获取当前节点的前置节点
                 final Node p = node.predecessor();
+                // 前置节点是头节点，且能获取同步状态，即可获取独占锁
                 if (p == head && tryAcquire(arg)) {
+                    //队列头指针指向当前节点
                     setHead(node);
+                    // 释放前置节点，
                     p.next = null; // help GC
                     failed = false;
                     return interrupted;
                 }
+                //获取锁失败，线程进入等待状态，等待获取独占锁
                 if (shouldParkAfterFailedAcquire(p, node) &&
                     parkAndCheckInterrupt())
                     interrupted = true;
@@ -896,11 +920,14 @@ public abstract class AbstractQueuedSynchronizer
      */
     private void doAcquireInterruptibly(int arg)
         throws InterruptedException {
+        // 将节点插入到同步队列中
         final Node node = addWaiter(Node.EXCLUSIVE);
         boolean failed = true;
         try {
+            //自旋
             for (;;) {
                 final Node p = node.predecessor();
+                //获取锁出队
                 if (p == head && tryAcquire(arg)) {
                     setHead(node);
                     p.next = null; // help GC
@@ -909,6 +936,7 @@ public abstract class AbstractQueuedSynchronizer
                 }
                 if (shouldParkAfterFailedAcquire(p, node) &&
                     parkAndCheckInterrupt())
+                    //线程中断，抛出异常
                     throw new InterruptedException();
             }
         } finally {
@@ -928,24 +956,30 @@ public abstract class AbstractQueuedSynchronizer
             throws InterruptedException {
         if (nanosTimeout <= 0L)
             return false;
+        // 计算截止时间
         final long deadline = System.nanoTime() + nanosTimeout;
         final Node node = addWaiter(Node.EXCLUSIVE);
         boolean failed = true;
         try {
             for (;;) {
                 final Node p = node.predecessor();
+                // 获取锁 出队
                 if (p == head && tryAcquire(arg)) {
                     setHead(node);
                     p.next = null; // help GC
                     failed = false;
                     return true;
                 }
+                //重新计算超时时间
                 nanosTimeout = deadline - System.nanoTime();
                 if (nanosTimeout <= 0L)
+                    // 超时返回false
                     return false;
+                //线程阻塞等待
                 if (shouldParkAfterFailedAcquire(p, node) &&
                     nanosTimeout > spinForTimeoutThreshold)
                     LockSupport.parkNanos(this, nanosTimeout);
+                //线程被中断，抛出异常
                 if (Thread.interrupted())
                     throw new InterruptedException();
             }
@@ -1210,6 +1244,8 @@ public abstract class AbstractQueuedSynchronizer
      *        can represent anything you like.
      */
     public final void acquire(int arg) {
+        // 同步获取状态，成功直接返回
+        // 若失败，调用addWaiter() 再调用acquireQueued()方法
         if (!tryAcquire(arg) &&
             acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
             selfInterrupt();
