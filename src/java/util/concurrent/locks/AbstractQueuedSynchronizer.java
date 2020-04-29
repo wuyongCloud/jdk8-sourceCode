@@ -1574,6 +1574,10 @@ public abstract class AbstractQueuedSynchronizer
      *         current thread, and {@code false} if the current thread
      *         is at the head of the queue or the queue is empty
      * @since 1.7
+     * 返回true 表示当前线程不能抢锁，到同步队列中排队
+     * 1：队列为空，head==tail 直接返回false
+     * 2: 后继节点是当前线程，直接抢锁，排队也是当前线程去抢锁
+     * 3：其他情况，全部返回true
      */
     public final boolean hasQueuedPredecessors() {
         // The correctness of this depends on head being initialized
@@ -1582,6 +1586,10 @@ public abstract class AbstractQueuedSynchronizer
         Node t = tail; // Read fields in reverse initialization order
         Node h = head;
         Node s;
+        /**
+         * h == t 没有线程在等待
+         * h.next==null 后继节点不存在，或者是当前线程 返回false
+         */
         return h != t &&
             ((s = h.next) == null || s.thread != Thread.currentThread());
     }

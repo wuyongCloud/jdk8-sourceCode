@@ -130,6 +130,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             final Thread current = Thread.currentThread();
             int c = getState();
             if (c == 0) {
+                //非公平锁，无需判断是否有等待队列，直接加入抢锁
                 if (compareAndSetState(0, acquires)) {
                     setExclusiveOwnerThread(current);
                     return true;
@@ -145,6 +146,12 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             return false;
         }
 
+        /**
+         * 释放重入锁，只有锁彻底释放，其他线程才可以竞争锁 返回true
+         * 每一次tryRelease status-1,最终status==0,当前线程会释放锁
+         * @param releases
+         * @return
+         */
         protected final boolean tryRelease(int releases) {
             int c = getState() - releases;
             if (Thread.currentThread() != getExclusiveOwnerThread())
@@ -193,6 +200,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
     }
 
     /**
+     * 非公平锁
      * Sync object for non-fair locks
      */
     static final class NonfairSync extends Sync {
@@ -203,6 +211,9 @@ public class ReentrantLock implements Lock, java.io.Serializable {
          * acquire on failure.
          */
         final void lock() {
+            /**
+             * 非公平锁，先去抢锁，抢不到锁，加入等待队列
+             */
             if (compareAndSetState(0, 1))
                 setExclusiveOwnerThread(Thread.currentThread());
             else
@@ -215,6 +226,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
     }
 
     /**
+     * 公平锁
      * Sync object for fair locks
      */
     static final class FairSync extends Sync {
@@ -231,14 +243,18 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         protected final boolean tryAcquire(int acquires) {
             final Thread current = Thread.currentThread();
             int c = getState();
-            if (c == 0) {
-                if (!hasQueuedPredecessors() &&
-                    compareAndSetState(0, acquires)) {
-                    setExclusiveOwnerThread(current);
+            if (c == 0) {//当前没有线程占用
+                if (!hasQueuedPredecessors() && // AQS同步队列中没有其他线程等锁的话，当前线程可以去抢锁
+                    compareAndSetState(0, acquires)) { //cas 修改status,修改成功抢到锁
+                    setExclusiveOwnerThread(current); //抢到锁，将AQS.exclusiveOwnerThread 置为当前线程
                     return true;
                 }
             }
             else if (current == getExclusiveOwnerThread()) {
+                /**
+                 * 重入
+                 * status加1
+                 */
                 int nextc = c + acquires;
                 if (nextc < 0)
                     throw new Error("Maximum lock count exceeded");
